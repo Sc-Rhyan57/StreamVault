@@ -4,6 +4,7 @@ import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -13,7 +14,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class TokenManager @Inject constructor(context: Context) {
+class TokenManager @Inject constructor(@ApplicationContext context: Context) {
 
     private val keyStore = KeyStore.getInstance("AndroidKeyStore").also { it.load(null) }
     private val KEY_ALIAS = "streamvault_token_key"
@@ -47,18 +48,18 @@ class TokenManager @Inject constructor(context: Context) {
     fun encryptToken(plainToken: String): String {
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, getKey())
-        val iv         = cipher.iv
-        val encrypted  = cipher.doFinal(plainToken.toByteArray(Charsets.UTF_8))
-        val combined   = iv + encrypted
+        val iv = cipher.iv
+        val encrypted = cipher.doFinal(plainToken.toByteArray(Charsets.UTF_8))
+        val combined = iv + encrypted
         return Base64.encodeToString(combined, Base64.NO_WRAP)
     }
 
     fun decryptToken(encToken: String): String {
         return runCatching {
-            val combined  = Base64.decode(encToken, Base64.NO_WRAP)
-            val iv        = combined.copyOfRange(0, IV_SIZE)
+            val combined = Base64.decode(encToken, Base64.NO_WRAP)
+            val iv = combined.copyOfRange(0, IV_SIZE)
             val encrypted = combined.copyOfRange(IV_SIZE, combined.size)
-            val cipher    = Cipher.getInstance(TRANSFORMATION)
+            val cipher = Cipher.getInstance(TRANSFORMATION)
             cipher.init(Cipher.DECRYPT_MODE, getKey(), GCMParameterSpec(TAG_SIZE, iv))
             String(cipher.doFinal(encrypted), Charsets.UTF_8)
         }.getOrElse { encToken }
