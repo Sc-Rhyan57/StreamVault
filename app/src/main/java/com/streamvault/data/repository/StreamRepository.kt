@@ -50,7 +50,7 @@ class StreamRepository @Inject constructor(
         val resp = apiService.authenticate(url, credentials, emptyMap())
         if (resp.isSuccessful) {
             val body = resp.body() ?: return Result.Error("Empty response")
-            val token   = body["token"]?.toString()    ?: body["access_token"]?.toString() ?: return Result.Error("No token in response")
+            val token = body["token"]?.toString() ?: body["access_token"]?.toString() ?: return Result.Error("No token in response")
             val refresh = body["refresh_token"]?.toString()
             val expires = (body["expires_in"] as? Double)?.toLong()?.let { System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(it) }
             val enc = tokenManager.encryptToken(token)
@@ -76,47 +76,47 @@ class StreamRepository @Inject constructor(
 
     fun connectWebSocket(): Flow<WsEvent> = flow {
         val config = preferences.serverConfig.first() ?: return@flow
-        val token  = tokenManager.decryptToken(preferences.authToken.first() ?: "")
-        val wsUrl  = config.websocketUrl ?: return@flow
+        val token = tokenManager.decryptToken(preferences.authToken.first() ?: "")
+        val wsUrl = config.websocketUrl ?: return@flow
         emitAll(wsClient.connect(wsUrl, token))
     }
 
     suspend fun searchContent(query: String): Result<List<MediaItem>> = runCatching {
-    val url  = "${baseUrl()}/search"
-    val resp = apiService.search(url, query, headers())
-    if (resp.isSuccessful) {
-        Result.Success(resp.body()?.map { it.toDomain() } ?: emptyList<MediaItem>())
-    } else {
-        Result.Error("HTTP ${resp.code()}")
-    }
-}.getOrElse { Result.Error(it.message ?: "Unknown", it) }
-
-suspend fun getProfiles(): Result<List<UserProfile>> = runCatching {
-    val url  = "${baseUrl()}/profiles"
-    val resp = apiService.getProfiles(url, headers())
-    if (resp.isSuccessful) {
-        Result.Success(resp.body()?.map { it.toDomain() } ?: emptyList<UserProfile>())
-    } else {
-        Result.Error("HTTP ${resp.code()}")
-    }
-}.getOrElse { Result.Error(it.message ?: "Unknown", it) }
-
-suspend fun getNotifications(): Result<List<NotificationItem>> = runCatching {
-    val url  = "${baseUrl()}/notifications"
-    val resp = apiService.getNotifications(url, headers())
-    if (resp.isSuccessful) {
-        Result.Success(resp.body()?.map { it.toDomain() } ?: emptyList<NotificationItem>())
-    } else {
-        Result.Error("HTTP ${resp.code()}")
-    }
-}.getOrElse { Result.Error(it.message ?: "Unknown", it) }
+        val url = "${baseUrl()}/search"
+        val resp = apiService.search(url, query, headers())
+        if (resp.isSuccessful) {
+            Result.Success(resp.body()?.map { it.toDomain() } ?: emptyList<MediaItem>())
+        } else {
+            Result.Error("HTTP ${resp.code()}")
+        }
+    }.getOrElse { Result.Error(it.message ?: "Unknown", it) }
 
     suspend fun getContent(id: String): Result<MediaItem> = runCatching {
-        val url  = "${baseUrl()}/content/$id"
+        val url = "${baseUrl()}/content/$id"
         val resp = apiService.getContent(url, headers())
         if (resp.isSuccessful) {
             val item = resp.body()?.toDomain() ?: return Result.Error("Not found")
             Result.Success(item)
+        } else {
+            Result.Error("HTTP ${resp.code()}")
+        }
+    }.getOrElse { Result.Error(it.message ?: "Unknown", it) }
+
+    suspend fun getProfiles(): Result<List<UserProfile>> = runCatching {
+        val url = "${baseUrl()}/profiles"
+        val resp = apiService.getProfiles(url, headers())
+        if (resp.isSuccessful) {
+            Result.Success(resp.body()?.map { it.toDomain() } ?: emptyList<UserProfile>())
+        } else {
+            Result.Error("HTTP ${resp.code()}")
+        }
+    }.getOrElse { Result.Error(it.message ?: "Unknown", it) }
+
+    suspend fun getNotifications(): Result<List<NotificationItem>> = runCatching {
+        val url = "${baseUrl()}/notifications"
+        val resp = apiService.getNotifications(url, headers())
+        if (resp.isSuccessful) {
+            Result.Success(resp.body()?.map { it.toDomain() } ?: emptyList<NotificationItem>())
         } else {
             Result.Error("HTTP ${resp.code()}")
         }
