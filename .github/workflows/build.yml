@@ -29,6 +29,14 @@ jobs:
           distribution: 'temurin'
 
       - uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.6'
+
+      - name: Generate Gradle Wrapper
+        run: gradle wrapper --gradle-version 8.6 --distribution-type bin
+
+      - name: Grant execute permission
+        run: chmod +x gradlew
 
       - name: Setup debug keystore
         if: ${{ inputs.buildType != 'release' }}
@@ -54,7 +62,7 @@ jobs:
           echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> $GITHUB_ENV
           echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> $GITHUB_ENV
 
-      - name: Setup google-services.json (debug placeholder)
+      - name: Setup google-services.json
         if: ${{ inputs.buildType != 'release' }}
         run: |
           cat > app/google-services.json << 'EOF'
