@@ -1,0 +1,121 @@
+name: Build StreamVault
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      buildType:
+        description: 'Build Type'
+        required: true
+        default: 'debug'
+        type: choice
+        options:
+          - debug
+          - release
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - uses: gradle/actions/setup-gradle@v3
+
+      - name: Setup debug keystore
+        if: ${{ inputs.buildType != 'release' }}
+        run: |
+          keytool -genkey -v \
+            -keystore keystore.jks \
+            -alias streamvault \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 1 \
+            -storepass streamvault \
+            -keypass streamvault \
+            -dname "CN=Debug, OU=Debug, O=StreamVault, L=Debug, S=Debug, C=BR"
+          echo "KEYSTORE_PASSWORD=streamvault" >> $GITHUB_ENV
+          echo "KEY_ALIAS=streamvault" >> $GITHUB_ENV
+          echo "KEY_PASSWORD=streamvault" >> $GITHUB_ENV
+
+      - name: Setup release keystore
+        if: ${{ inputs.buildType == 'release' }}
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore.jks
+          echo "KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
+          echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> $GITHUB_ENV
+          echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> $GITHUB_ENV
+
+      - name: Setup google-services.json (debug placeholder)
+        if: ${{ inputs.buildType != 'release' }}
+        run: |
+          cat > app/google-services.json << 'EOF'
+          {
+            "project_info": {
+              "project_number": "000000000000",
+              "project_id": "streamvault-debug",
+              "storage_bucket": "streamvault-debug.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
+                  "android_client_info": { "package_name": "com.streamvault.debug" }
+                },
+                "oauth_client": [],
+                "api_key": [{ "current_key": "debug_placeholder_key" }],
+                "services": { "appinvite_service": { "other_platform_oauth_client": [] } }
+              }
+            ],
+            "configuration_version": "1"
+          }
+          EOF
+
+      - name: Build Debug APK
+        if: ${{ inputs.buildType != 'release' }}
+        run: ./gradlew :app:assembleDebug
+        env:
+          KEYSTORE_PASSWORD: ${{ env.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ env.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ env.KEY_PASSWORD }}
+
+      - name: Build Release APK
+        if: ${{ inputs.buildType == 'release' }}
+        run: ./gradlew :app:assembleRelease
+        env:
+          KEYSTORE_PASSWORD: ${{ env.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ env.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ env.KEY_PASSWORD }}
+
+      - name: Rename APK
+        run: |
+          TYPE=${{ inputs.buildType == 'release' && 'release' || 'debug' }}
+          mkdir -p dist
+          find app/build/outputs/apk/$TYPE -name "*.apk" -exec cp {} dist/StreamVault-$TYPE-${{ github.run_number }}.apk \;
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: StreamVault-${{ inputs.buildType == 'release' && 'release' || 'debug' }}-${{ github.run_number }}
+          path: dist/*.apk
+          retention-days: ${{ inputs.buildType == 'release' && 90 || 7 }}
+
+      - name: Create Release
+        if: ${{ inputs.buildType == 'release' }}
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: StreamVault v1.0.${{ github.run_number }}
+          files: dist/*.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
