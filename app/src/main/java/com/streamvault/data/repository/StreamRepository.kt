@@ -82,14 +82,34 @@ class StreamRepository @Inject constructor(
     }
 
     suspend fun searchContent(query: String): Result<List<MediaItem>> = runCatching {
-        val url  = "${baseUrl()}/search"
-        val resp = apiService.search(url, query, headers())
-        if (resp.isSuccessful) {
-            Result.Success(resp.body()?.map { it.toDomain() } ?: emptyList())
-        } else {
-            Result.Error("HTTP ${resp.code()}")
-        }
-    }.getOrElse { Result.Error(it.message ?: "Unknown", it) }
+    val url  = "${baseUrl()}/search"
+    val resp = apiService.search(url, query, headers())
+    if (resp.isSuccessful) {
+        Result.Success(resp.body()?.map { it.toDomain() } ?: emptyList<MediaItem>())
+    } else {
+        Result.Error("HTTP ${resp.code()}")
+    }
+}.getOrElse { Result.Error(it.message ?: "Unknown", it) }
+
+suspend fun getProfiles(): Result<List<UserProfile>> = runCatching {
+    val url  = "${baseUrl()}/profiles"
+    val resp = apiService.getProfiles(url, headers())
+    if (resp.isSuccessful) {
+        Result.Success(resp.body()?.map { it.toDomain() } ?: emptyList<UserProfile>())
+    } else {
+        Result.Error("HTTP ${resp.code()}")
+    }
+}.getOrElse { Result.Error(it.message ?: "Unknown", it) }
+
+suspend fun getNotifications(): Result<List<NotificationItem>> = runCatching {
+    val url  = "${baseUrl()}/notifications"
+    val resp = apiService.getNotifications(url, headers())
+    if (resp.isSuccessful) {
+        Result.Success(resp.body()?.map { it.toDomain() } ?: emptyList<NotificationItem>())
+    } else {
+        Result.Error("HTTP ${resp.code()}")
+    }
+}.getOrElse { Result.Error(it.message ?: "Unknown", it) }
 
     suspend fun getContent(id: String): Result<MediaItem> = runCatching {
         val url  = "${baseUrl()}/content/$id"
@@ -97,26 +117,6 @@ class StreamRepository @Inject constructor(
         if (resp.isSuccessful) {
             val item = resp.body()?.toDomain() ?: return Result.Error("Not found")
             Result.Success(item)
-        } else {
-            Result.Error("HTTP ${resp.code()}")
-        }
-    }.getOrElse { Result.Error(it.message ?: "Unknown", it) }
-
-    suspend fun getProfiles(): Result<List<UserProfile>> = runCatching {
-        val url  = "${baseUrl()}/profiles"
-        val resp = apiService.getProfiles(url, headers())
-        if (resp.isSuccessful) {
-            Result.Success(resp.body()?.map { it.toDomain() } ?: emptyList())
-        } else {
-            Result.Error("HTTP ${resp.code()}")
-        }
-    }.getOrElse { Result.Error(it.message ?: "Unknown", it) }
-
-    suspend fun getNotifications(): Result<List<NotificationItem>> = runCatching {
-        val url  = "${baseUrl()}/notifications"
-        val resp = apiService.getNotifications(url, headers())
-        if (resp.isSuccessful) {
-            Result.Success(resp.body()?.map { it.toDomain() } ?: emptyList())
         } else {
             Result.Error("HTTP ${resp.code()}")
         }
