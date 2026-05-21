@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">StreamVault</string>
+    <string name="cast_notification_channel">StreamVault Cast</string>
+    <string name="playback_notification_channel">StreamVault Playback</string>
+</resources>
