@@ -85,6 +85,52 @@ jobs:
           }
           EOF
 
+      - name: Sanitizar recursos duplicados
+        run: |
+          set -euo pipefail
+          RES_DIR="app/src/main/res"
+          REMOVED=0
+
+          for xml_file in $(find "$RES_DIR" -path "*/mipmap-*/*.xml" -name "ic_launcher*.xml"); do
+            dir=$(dirname "$xml_file")
+            base=$(basename "$xml_file" .xml)
+            png_file="$dir/$base.png"
+            if [ -f "$png_file" ]; then
+              echo "removendo $png_file"
+              rm "$png_file"
+              REMOVED=$((REMOVED + 1))
+            fi
+          done
+
+          for dir in $(find "$RES_DIR" -mindepth 1 -maxdepth 2 -type d); do
+            declare -A seen=()
+            while IFS= read -r -d '' file; do
+              filename=$(basename "$file")
+              base="${filename%.*}"
+              ext="${filename##*.}"
+              if [ -n "${seen[$base]+_}" ]; then
+                prev="${seen[$base]}"
+                if [[ "$ext" == "xml" && "$prev" != "xml" ]]; then
+                  target="$dir/$base.$prev"
+                elif [[ "$prev" == "xml" && "$ext" != "xml" ]]; then
+                  target="$dir/$base.$ext"
+                else
+                  continue
+                fi
+                if [ -f "$target" ]; then
+                  echo "removendo $target"
+                  rm "$target"
+                  REMOVED=$((REMOVED + 1))
+                fi
+              else
+                seen[$base]="$ext"
+              fi
+            done < <(find "$dir" -maxdepth 1 -type f -print0)
+            unset seen
+          done
+
+          echo "total removido: $REMOVED arquivo(s)"
+
       - name: Build Debug APK
         if: ${{ inputs.buildType != 'release' }}
         run: ./gradlew :app:assembleDebug
